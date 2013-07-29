@@ -94,9 +94,9 @@ func FileWorker(id int, fileQueue chan *string) {
 			syncedBytes += uint64(bytes)
 			syncedFiles += 1
 
-			//log.Printf("Worker %d fetched %d bytes of %v", id, bytes, *key)
+			log.Printf("Fetched %v (%d bytes)", *key, bytes)
 		} else {
-			//log.Printf("Worker %d skipped %v", id, *key)
+			log.Printf("Skipped %v", *key)
 		}
 
 		totalFiles += 1
@@ -152,7 +152,7 @@ func initFlags() {
 func main() {
 	initFlags()
 
-	log.Printf("Starting bucket sync")
+	log.Printf("Starting bucket sync from %v to %v", awsBucket, localRootPath)
 
 	fileQueue = make(chan *string, 2000)
 	workerCount := 8
@@ -174,6 +174,5 @@ func main() {
 	// Wait for everything to finish up
 	waitGroup.Wait()
 
-	log.Printf("Synced %v/%v files updating %v bytes", syncedFiles, totalFiles, syncedBytes)
-	log.Printf("Shutting down")
+	log.Printf("Synced %v/%v seen files, updated %v bytes", syncedFiles, totalFiles, syncedBytes)
 }
