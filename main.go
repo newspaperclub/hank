@@ -33,7 +33,7 @@ func listBucket() {
 	for moreToFetch {
 		sourceList, err := bucket.List("", "", marker, 1000)
 		if err != nil {
-			panic(err.Error())
+			log.Fatal(err)
 		}
 
 		//log.Printf("Received new list, found %v files", len(sourceList.Contents))
@@ -71,24 +71,24 @@ func FileWorker(id int, fileQueue chan *string) {
 			dirPath := filepath.Dir(localFilePath)
 			err := os.MkdirAll(dirPath, 0777)
 			if err != nil {
-				panic(err.Error())
+				log.Fatal(err)
 			}
 
 			fileWriter, err := os.Create(localFilePath)
 			defer fileWriter.Close()
 			if err != nil {
-				panic(err.Error())
+				log.Fatal(err)
 			}
 
 			bucketReader, err := bucket.GetReader(*key)
 			defer bucketReader.Close()
 			if err != nil {
-				panic(err.Error())
+				log.Fatal(err)
 			}
 
 			bytes, err := io.Copy(fileWriter, bucketReader)
 			if err != nil {
-				panic(err.Error())
+				log.Fatal(err)
 			}
 
 			syncedBytes += uint64(bytes)
@@ -123,15 +123,14 @@ func initFlags() {
 	}
 
 	if localRootPath == "" {
-		log.Printf("No destination provided.")
-		os.Exit(1)
+		log.Fatal("No destination provided.")
 	}
 
 	// If the provided path isn't absolute, make it so
 	if !filepath.IsAbs(localRootPath) {
 		workingDir, err := os.Getwd()
 		if err != nil {
-			panic(err.Error())
+			log.Fatal(err)
 		}
 
 		localRootPath = filepath.Join(workingDir, localRootPath)
@@ -139,13 +138,11 @@ func initFlags() {
 
 	fileInfo, err := os.Stat(localRootPath)
 	if os.IsNotExist(err) {
-		log.Printf("Destination not found.")
-		os.Exit(1)
+		log.Fatal("Destination not found.")
 	}
 
 	if !fileInfo.IsDir() {
-		log.Printf("Destination is not a directory.")
-		os.Exit(1)
+		log.Fatal("Destination is not a directory.")
 	}
 }
 
