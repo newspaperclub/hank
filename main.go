@@ -21,22 +21,20 @@ var (
 	awsAccessKey string
 	awsSecretKey string
 	awsBucket string
-	awsRegion string = "eu-west-1"
+	awsRegion = "eu-west-1"
 	localRootPath string
+	workerCount = 8
 )
 
 func listBucket() {
-	bucket := Bucket()
+	bucket := newBucketConnection()
 	marker := ""
-	moreToFetch := true
 
-	for moreToFetch {
+	for {
 		sourceList, err := bucket.List("", "", marker, 1000)
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		//log.Printf("Received new list, found %v files", len(sourceList.Contents))
 
 		for i := 0; i < len(sourceList.Contents); i++ {
 			key := sourceList.Contents[i]
@@ -44,7 +42,7 @@ func listBucket() {
 		}
 
 		if !sourceList.IsTruncated {
-			moreToFetch = false
+			break
 		}
 
 		lastIndex := len(sourceList.Contents) - 1
@@ -53,8 +51,8 @@ func listBucket() {
 	}
 }
 
-func FileWorker(id int, fileQueue chan *string) {
-	bucket := Bucket()
+func fileWorker(fileQueue chan *string) {
+	bucket := newBucketConnection()
 
 	for {
 		key := <-fileQueue
@@ -103,7 +101,7 @@ func FileWorker(id int, fileQueue chan *string) {
 	}
 }
 
-func Bucket() (bucket *s3.Bucket) {
+func newBucketConnection() (bucket *s3.Bucket) {
 	auth := aws.Auth{AccessKey: awsAccessKey, SecretKey: awsSecretKey}
 	s3Conn := s3.New(auth, aws.Regions[awsRegion])
 	return s3Conn.Bucket(awsBucket)
@@ -149,20 +147,25 @@ func initFlags() {
 func main() {
 	initFlags()
 
+	fileQueue = make(chan *string, 2000)
+
 	log.Printf("Starting bucket sync from %v to %v", awsBucket, localRootPath)
 
-	fileQueue = make(chan *string, 2000)
-	workerCount := 8
+	startWorkers()
+	listBucket()
+	stopWorkers()
 
-	// Fire up `workerCount` workers
+	log.Printf("Synced %v/%v seen files, updated %v bytes", syncedFiles, totalFiles, syncedBytes)
+}
+
+func startWorkers() {
 	for i := 0; i < workerCount; i++ {
 		waitGroup.Add(1)
-		go FileWorker(i, fileQueue)
+		go fileWorker(fileQueue)
 	}
+}
 
-	// Start the hard work
-	listBucket()
-
+func stopWorkers() {
 	// Shutdown the workers by sending them a nil
 	for i := 0; i < workerCount; i++ {
 		fileQueue <- nil
@@ -170,6 +173,4 @@ func main() {
 
 	// Wait for everything to finish up
 	waitGroup.Wait()
-
-	log.Printf("Synced %v/%v seen files, updated %v bytes", syncedFiles, totalFiles, syncedBytes)
 }
