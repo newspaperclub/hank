@@ -1,29 +1,29 @@
 package main
 
 import (
-	"log"
-	"sync"
-	"os"
-	"io"
 	"flag"
-	"path/filepath"
-	"launchpad.net/goamz/s3"
+	"io"
 	"launchpad.net/goamz/aws"
+	"launchpad.net/goamz/s3"
+	"log"
+	"os"
+	"path/filepath"
+	"sync"
 )
 
 var (
-	waitGroup sync.WaitGroup
-	fileQueue chan *string
+	waitGroup   sync.WaitGroup
+	fileQueue   chan *string
 	syncedFiles uint64
 	syncedBytes uint64
-	totalFiles uint64
+	totalFiles  uint64
 
-	awsAccessKey string
-	awsSecretKey string
-	awsBucket string
-	awsRegion = "eu-west-1"
+	awsAccessKey  string
+	awsSecretKey  string
+	awsBucket     string
+	awsRegion     = "eu-west-1"
 	localRootPath string
-	workerCount = 8
+	workerCount   = 8
 )
 
 func listBucket() {
