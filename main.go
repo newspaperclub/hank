@@ -21,7 +21,7 @@ var (
 	awsAccessKey string
 	awsSecretKey string
 	awsBucket string
-	awsRegion string
+	awsRegion string = "eu-west-1"
 	localRootPath string
 )
 
@@ -113,7 +113,7 @@ func initFlags() {
 	flag.StringVar(&awsAccessKey, "access-key", "", "AWS Access Key")
 	flag.StringVar(&awsSecretKey, "secret-key", "", "AWS Secret Key")
 	flag.StringVar(&awsBucket, "bucket", "", "S3 Bucket")
-	flag.StringVar(&awsRegion, "region", "", "S3 Region")
+	flag.StringVar(&awsRegion, "region", awsRegion, "S3 Region")
 
 	flag.Parse()
 	args := flag.Args()
