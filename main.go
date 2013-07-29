@@ -14,7 +14,9 @@ import (
 var (
 	waitGroup sync.WaitGroup
 	fileQueue chan *string
-	syncedFiles int
+	syncedFiles uint64
+	syncedBytes uint64
+	totalFiles uint64
 
 	awsAccessKey string
 	awsSecretKey string
@@ -34,12 +36,11 @@ func listBucket() {
 			panic(err.Error())
 		}
 
-		log.Printf("Received new list, found %v files", len(sourceList.Contents))
+		//log.Printf("Received new list, found %v files", len(sourceList.Contents))
 
 		for i := 0; i < len(sourceList.Contents); i++ {
 			key := sourceList.Contents[i]
 			fileQueue <- &key.Key
-			log.Printf(key.Key)
 		}
 
 		if !sourceList.IsTruncated {
@@ -90,10 +91,15 @@ func FileWorker(id int, fileQueue chan *string) {
 				panic(err.Error())
 			}
 
-			log.Printf("Worker %d fetched %d bytes of %v", id, bytes, *key)
+			syncedBytes += uint64(bytes)
+			syncedFiles += 1
+
+			//log.Printf("Worker %d fetched %d bytes of %v", id, bytes, *key)
 		} else {
-			log.Printf("Worker %d skipped %v", id, *key)
+			//log.Printf("Worker %d skipped %v", id, *key)
 		}
+
+		totalFiles += 1
 	}
 }
 
@@ -168,5 +174,6 @@ func main() {
 	// Wait for everything to finish up
 	waitGroup.Wait()
 
+	log.Printf("Synced %v/%v files updating %v bytes", syncedFiles, totalFiles, syncedBytes)
 	log.Printf("Shutting down")
 }
