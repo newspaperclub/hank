@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 )
 
 var (
@@ -89,15 +90,15 @@ func fileWorker(fileQueue chan *string) {
 				log.Fatal(err)
 			}
 
-			syncedBytes += uint64(bytes)
-			syncedFiles += 1
+			atomic.AddUint64(&syncedBytes, uint64(bytes))
+			atomic.AddUint64(&syncedFiles, 1)
 
 			log.Printf("Fetched %v (%d bytes)", *key, bytes)
 		} else {
 			log.Printf("Skipped %v", *key)
 		}
 
-		totalFiles += 1
+		atomic.AddUint64(&totalFiles, 1)
 	}
 }
 
