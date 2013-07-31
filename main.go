@@ -62,44 +62,51 @@ func fileWorker(fileQueue chan *string) {
 			break
 		}
 
-		localFilePath := filepath.Join(localRootPath, *key)
-
-		if _, err := os.Stat(localFilePath); os.IsNotExist(err) {
-
-			// Make the dir if it doesn't exist
-			dirPath := filepath.Dir(localFilePath)
-			err := os.MkdirAll(dirPath, 0777)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			fileWriter, err := os.Create(localFilePath)
-			defer fileWriter.Close()
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			bucketReader, err := bucket.GetReader(*key)
-			defer bucketReader.Close()
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			bytes, err := io.Copy(fileWriter, bucketReader)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			atomic.AddUint64(&syncedBytes, uint64(bytes))
-			atomic.AddUint64(&syncedFiles, 1)
-
-			log.Printf("Fetched %v (%d bytes)", *key, bytes)
-		} else {
-			log.Printf("Skipped %v", *key)
-		}
-
-		atomic.AddUint64(&totalFiles, 1)
+		processKey(bucket, key)
 	}
+}
+
+func processKey(bucket *s3.Bucket, key *string) {
+	defer atomic.AddUint64(&totalFiles, 1)
+
+	localFilePath := filepath.Join(localRootPath, *key)
+
+	// TODO: This should also check that the file we're checking is not
+	// a directory
+	_, statErr := os.Stat(localFilePath)
+	if !os.IsNotExist(statErr) {
+		log.Printf("Skipped %v", *key)
+		return
+	}
+
+	// Make the dir if it doesn't exist
+	dirPath := filepath.Dir(localFilePath)
+	err := os.MkdirAll(dirPath, 0777)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fileWriter, err := os.Create(localFilePath)
+	defer fileWriter.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	bucketReader, err := bucket.GetReader(*key)
+	defer bucketReader.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	bytes, err := io.Copy(fileWriter, bucketReader)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	atomic.AddUint64(&syncedBytes, uint64(bytes))
+	atomic.AddUint64(&syncedFiles, 1)
+
+	log.Printf("Fetched %v (%d bytes)", *key, bytes)
 }
 
 func newBucketConnection() (bucket *s3.Bucket) {
