@@ -74,9 +74,13 @@ func processKey(bucket *s3.Bucket, key *string) {
 	// TODO: This should also check that the file we're checking is not
 	// a directory
 	_, statErr := os.Stat(localFilePath)
-	if !os.IsNotExist(statErr) {
+	if statErr == nil {
 		log.Printf("Skipped %v", *key)
 		return
+	}
+
+	if os.IsPermission(statErr) {
+		log.Fatal(statErr)
 	}
 
 	// Make the dir if it doesn't exist
