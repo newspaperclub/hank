@@ -14,7 +14,7 @@ import (
 
 var (
 	waitGroup   sync.WaitGroup
-	fileQueue   chan *string
+	fileQueue   chan *s3.Key
 	syncedFiles uint64
 	syncedBytes uint64
 	totalFiles  uint64
@@ -39,7 +39,7 @@ func listBucket() {
 
 		for i := 0; i < len(sourceList.Contents); i++ {
 			key := sourceList.Contents[i]
-			fileQueue <- &key.Key
+			fileQueue <- &key
 		}
 
 		if !sourceList.IsTruncated {
@@ -52,7 +52,7 @@ func listBucket() {
 	}
 }
 
-func fileWorker(fileQueue chan *string) {
+func fileWorker(fileQueue chan *s3.Key) {
 	bucket := newBucketConnection()
 
 	for {
@@ -66,21 +66,20 @@ func fileWorker(fileQueue chan *string) {
 	}
 }
 
-func processKey(bucket *s3.Bucket, key *string) {
+func processKey(bucket *s3.Bucket, key *s3.Key) {
 	defer atomic.AddUint64(&totalFiles, 1)
 
-	localFilePath := filepath.Join(localRootPath, *key)
+	localFilePath := filepath.Join(localRootPath, key.Key)
 
-	// TODO: This should also check that the file we're checking is not
-	// a directory
-	_, statErr := os.Stat(localFilePath)
-	if statErr == nil {
-		log.Printf("Skipped %v", *key)
-		return
-	}
+	if checkFilePresence(localFilePath) {
+		size := fileSize(localFilePath)
 
-	if os.IsPermission(statErr) {
-		log.Fatal(statErr)
+		if size == key.Size {
+			log.Printf("Skipped %v", key.Key)
+			return
+		}
+
+		log.Printf("Mismatched size for %v (expecting %d bytes, got %d bytes)", key.Key, key.Size, size)
 	}
 
 	// Make the dir if it doesn't exist
@@ -96,7 +95,7 @@ func processKey(bucket *s3.Bucket, key *string) {
 		log.Fatal(err)
 	}
 
-	bucketReader, err := bucket.GetReader(*key)
+	bucketReader, err := bucket.GetReader(key.Key)
 	defer bucketReader.Close()
 	if err != nil {
 		log.Fatal(err)
@@ -110,7 +109,30 @@ func processKey(bucket *s3.Bucket, key *string) {
 	atomic.AddUint64(&syncedBytes, uint64(bytes))
 	atomic.AddUint64(&syncedFiles, 1)
 
-	log.Printf("Fetched %v (%d bytes)", *key, bytes)
+	log.Printf("Fetched %v (%d bytes)", key.Key, bytes)
+}
+
+func checkFilePresence(path string) (bool) {
+	file, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+
+		log.Fatal(err)
+	}
+
+	file.Close()
+	return true
+}
+
+func fileSize(path string) (int64) {
+	info, err := os.Stat(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return info.Size()
 }
 
 func newBucketConnection() (bucket *s3.Bucket) {
@@ -159,7 +181,7 @@ func initFlags() {
 func main() {
 	initFlags()
 
-	fileQueue = make(chan *string, 2000)
+	fileQueue = make(chan *s3.Key, 2000)
 
 	log.Printf("Starting bucket sync from %v to %v", awsBucket, localRootPath)
 
