@@ -13,18 +13,23 @@ import (
 )
 
 var (
-	waitGroup   sync.WaitGroup
-	fileQueue   chan *s3.Key
-	syncedFiles uint64
-	syncedBytes uint64
-	totalFiles  uint64
+	fileQueue         chan *s3.Key
+	fileWaitGroup     sync.WaitGroup
+	downloadQueue     chan *s3.Key
+	downloadWaitGroup sync.WaitGroup
+	syncedFiles       uint64
+	syncedBytes       uint64
+	totalFiles        uint64
+	totalBytes        uint64
 
 	awsAccessKey  string
 	awsSecretKey  string
 	awsBucket     string
 	awsRegion     = "eu-west-1"
 	localRootPath string
-	workerCount   = 8
+
+	downloadConcurrency = 8
+	fileConcurrency     = 1
 )
 
 func listBucket() {
@@ -52,27 +57,40 @@ func listBucket() {
 	}
 }
 
-func fileWorker(fileQueue chan *s3.Key) {
-	bucket := newBucketConnection()
-
+func fileWorker() {
 	for {
 		key := <-fileQueue
 		if key == nil {
-			waitGroup.Done()
+			fileWaitGroup.Done()
 			break
 		}
 
-		processKey(bucket, key)
+		checkKey(key)
 	}
 }
 
-func processKey(bucket *s3.Bucket, key *s3.Key) {
+func downloadWorker() {
+	bucket := newBucketConnection()
+
+	for {
+		key := <-downloadQueue
+		if key == nil {
+			downloadWaitGroup.Done()
+			break
+		}
+
+		downloadKey(bucket, key)
+	}
+}
+
+func checkKey(key *s3.Key) {
 	defer atomic.AddUint64(&totalFiles, 1)
+	defer atomic.AddUint64(&totalBytes, uint64(key.Size))
 
-	localFilePath := filepath.Join(localRootPath, key.Key)
+	path := pathForKey(key)
 
-	if checkFilePresence(localFilePath) {
-		size := fileSize(localFilePath)
+	if checkFilePresence(path) {
+		size := fileSize(path)
 
 		if size == key.Size {
 			log.Printf("Skipped %v", key.Key)
@@ -82,14 +100,20 @@ func processKey(bucket *s3.Bucket, key *s3.Key) {
 		log.Printf("Mismatched size for %v (expecting %d bytes, got %d bytes)", key.Key, key.Size, size)
 	}
 
+	downloadQueue <- key
+}
+
+func downloadKey(bucket *s3.Bucket, key *s3.Key) {
+	path := pathForKey(key)
+
 	// Make the dir if it doesn't exist
-	dirPath := filepath.Dir(localFilePath)
+	dirPath := filepath.Dir(path)
 	err := os.MkdirAll(dirPath, 0777)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fileWriter, err := os.Create(localFilePath)
+	fileWriter, err := os.Create(path)
 	defer fileWriter.Close()
 	if err != nil {
 		log.Fatal(err)
@@ -112,7 +136,7 @@ func processKey(bucket *s3.Bucket, key *s3.Key) {
 	log.Printf("Fetched %v (%d bytes)", key.Key, bytes)
 }
 
-func checkFilePresence(path string) (bool) {
+func checkFilePresence(path string) bool {
 	file, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -126,13 +150,17 @@ func checkFilePresence(path string) (bool) {
 	return true
 }
 
-func fileSize(path string) (int64) {
+func fileSize(path string) int64 {
 	info, err := os.Stat(path)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	return info.Size()
+}
+
+func pathForKey(key *s3.Key) string {
+	return filepath.Join(localRootPath, key.Key)
 }
 
 func newBucketConnection() (bucket *s3.Bucket) {
@@ -181,7 +209,8 @@ func initFlags() {
 func main() {
 	initFlags()
 
-	fileQueue = make(chan *s3.Key, 2000)
+	fileQueue = make(chan *s3.Key, 10000)
+	downloadQueue = make(chan *s3.Key, 10000)
 
 	log.Printf("Starting bucket sync from %v to %v", awsBucket, localRootPath)
 
@@ -189,22 +218,32 @@ func main() {
 	listBucket()
 	stopWorkers()
 
-	log.Printf("Synced %v/%v seen files, updated %v bytes", syncedFiles, totalFiles, syncedBytes)
+	log.Printf("Synced %v/%v seen files, updated %v/%v bytes", syncedFiles, totalFiles, syncedBytes, totalBytes)
 }
 
 func startWorkers() {
-	for i := 0; i < workerCount; i++ {
-		waitGroup.Add(1)
-		go fileWorker(fileQueue)
+	for i := 0; i < fileConcurrency; i++ {
+		fileWaitGroup.Add(1)
+		go fileWorker()
+	}
+
+	for i := 0; i < downloadConcurrency; i++ {
+		downloadWaitGroup.Add(1)
+		go downloadWorker()
 	}
 }
 
 func stopWorkers() {
-	// Shutdown the workers by sending them a nil
-	for i := 0; i < workerCount; i++ {
+	// We shutdown the workers by sending them a nil
+	for i := 0; i < fileConcurrency; i++ {
 		fileQueue <- nil
 	}
 
-	// Wait for everything to finish up
-	waitGroup.Wait()
+	fileWaitGroup.Wait()
+
+	for i := 0; i < downloadConcurrency; i++ {
+		downloadQueue <- nil
+	}
+
+	downloadWaitGroup.Wait()
 }
