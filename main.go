@@ -68,7 +68,10 @@ func main() {
 
 	bucket := newBucketConnection()
 	downloader := NewBucketDownloader(bucket, localRootPath, downloadConcurrency)
-	downloader.Run()
+	seenFiles := downloader.Run()
 
-	log.Printf("Saw %d files (%d bytes), updated %d files (%d bytes)", downloader.totalFiles, downloader.totalBytes, downloader.syncedFiles, downloader.syncedBytes)
+	deleter := NewBucketDeleter(localRootPath, seenFiles)
+	deleter.Run()
+
+	log.Printf("Saw %d files (%d bytes), updated %d files (%d bytes), deleted %d files (%d bytes)", downloader.totalFiles, downloader.totalBytes, downloader.syncedFiles, downloader.syncedBytes, deleter.deletedFiles, deleter.deletedBytes)
 }
