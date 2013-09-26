@@ -10,8 +10,9 @@ We use hank as part of our backup tools to sync a ~400GB S3 bucket, containing
 
 It doesn't check file contents and will skip anything that already exists
 locally, assuming the file size matches. Only cares about objects (files), and
-won't attempt to replicate directories. Doesn't delete files locally that have
-been deleted remotely.
+won't attempt to replicate directories. Will delete files locally that have
+been deleted remotely, but won't clean up any directories that were created by
+those.
 
 Listing the bucket and iterating over the filesystem uses a single goroutine
 each, but downloading uses 8 simultaneously to maximise network throughput.
