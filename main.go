@@ -29,6 +29,7 @@ func initFlags() {
 	flag.StringVar(&awsSecretKey, "secret-key", "", "AWS Secret Key")
 	flag.StringVar(&awsBucket, "bucket", "", "S3 Bucket")
 	flag.StringVar(&awsRegion, "region", awsRegion, "S3 Region")
+	flag.UintVar(&downloadConcurrency, "download-concurrency", downloadConcurrency, "Download Concurrency")
 
 	flag.Parse()
 	args := flag.Args()
@@ -64,7 +65,7 @@ func initFlags() {
 func main() {
 	initFlags()
 
-	log.Printf("Starting bucket sync from %v to %v", awsBucket, localRootPath)
+	log.Printf("Starting bucket sync from %v to %v with %d workers", awsBucket, localRootPath, downloadConcurrency)
 
 	bucket := newBucketConnection()
 	downloader := NewBucketDownloader(bucket, localRootPath, downloadConcurrency)
