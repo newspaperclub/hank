@@ -23,4 +23,4 @@ I'm happy to add other architectures to the build script if needed.
 
 ## Usage
 
-    hank --access-key FOO --secret-key BAR --region eu-west-1 --bucket bucket-name path/to/destination
+    hank --access-key FOO --secret-key BAR --region eu-west-1 --bucket bucket-name --download-concurrency=8 path/to/destination
