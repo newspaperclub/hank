@@ -29,7 +29,7 @@ func (deleter *bucketDeleter) Run() {
 // Deletes files, if not present on the backup.
 // TODO: cleanup empty directories.
 func (deleter *bucketDeleter) deleteFiles() {
-	var visitFile = func(path string, fileInfo os.FileInfo, inputErr error) (err error) {
+	visitFile := func(path string, fileInfo os.FileInfo, inputErr error) (err error) {
 		// Skip over the file if it's not a normal, regular file
 		if (!fileInfo.Mode().IsRegular()) {
 			return nil
