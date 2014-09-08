@@ -1,9 +1,9 @@
 package main
 
 import (
-	"path/filepath"
-	"os"
 	"log"
+	"os"
+	"path/filepath"
 )
 
 type bucketDeleter struct {
@@ -15,7 +15,7 @@ type bucketDeleter struct {
 
 func NewBucketDeleter(targetPath string, keepFilePaths map[string]bool) *bucketDeleter {
 	deleter := bucketDeleter{
-		targetPath: targetPath,
+		targetPath:    targetPath,
 		keepFilePaths: keepFilePaths,
 	}
 
@@ -31,7 +31,7 @@ func (deleter *bucketDeleter) Run() {
 func (deleter *bucketDeleter) deleteFiles() {
 	visitFile := func(path string, fileInfo os.FileInfo, inputErr error) (err error) {
 		// Skip over the file if it's not a normal, regular file
-		if (!fileInfo.Mode().IsRegular()) {
+		if !fileInfo.Mode().IsRegular() {
 			return nil
 		}
 
@@ -41,7 +41,7 @@ func (deleter *bucketDeleter) deleteFiles() {
 		}
 
 		// Check if the file is to be kept
-		if (!deleter.keepFilePaths[relativePath]) {
+		if !deleter.keepFilePaths[relativePath] {
 			err := os.Remove(path)
 			if err != nil {
 				log.Fatal(err)

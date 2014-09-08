@@ -1,9 +1,9 @@
 package main
 
 import (
-	"os"
-	"log"
 	"launchpad.net/goamz/s3"
+	"log"
+	"os"
 	"path/filepath"
 )
 
