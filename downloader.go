@@ -27,7 +27,7 @@ type bucketDownloader struct {
 	downloadWaitGroup sync.WaitGroup
 }
 
-func NewBucketDownloader(bucket *s3.Bucket, targetPath string, concurrency uint) *bucketDownloader {
+func newBucketDownloader(bucket *s3.Bucket, targetPath string, concurrency uint) *bucketDownloader {
 	downloader := bucketDownloader{
 		bucket:        bucket,
 		targetPath:    targetPath,
@@ -38,7 +38,7 @@ func NewBucketDownloader(bucket *s3.Bucket, targetPath string, concurrency uint)
 	return &downloader
 }
 
-func (downloader *bucketDownloader) Run() map[string]bool {
+func (downloader *bucketDownloader) run() map[string]bool {
 	downloader.startKeyWorkers()
 	downloader.startDownloadWorkers()
 	downloader.listContents()

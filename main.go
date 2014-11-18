@@ -68,11 +68,11 @@ func main() {
 	log.Printf("Starting bucket sync from %v to %v with %d workers", awsBucket, localRootPath, downloadConcurrency)
 
 	bucket := newBucketConnection()
-	downloader := NewBucketDownloader(bucket, localRootPath, downloadConcurrency)
-	seenFiles := downloader.Run()
+	downloader := newBucketDownloader(bucket, localRootPath, downloadConcurrency)
+	seenFiles := downloader.run()
 
-	deleter := NewBucketDeleter(localRootPath, seenFiles)
-	deleter.Run()
+	deleter := newBucketDeleter(localRootPath, seenFiles)
+	deleter.run()
 
 	log.Printf("Saw %d files (%d bytes), updated %d files (%d bytes), deleted %d files (%d bytes)", downloader.totalFiles, downloader.totalBytes, downloader.syncedFiles, downloader.syncedBytes, deleter.deletedFiles, deleter.deletedBytes)
 }

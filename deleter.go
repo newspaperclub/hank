@@ -13,7 +13,7 @@ type bucketDeleter struct {
 	targetPath    string
 }
 
-func NewBucketDeleter(targetPath string, keepFilePaths map[string]bool) *bucketDeleter {
+func newBucketDeleter(targetPath string, keepFilePaths map[string]bool) *bucketDeleter {
 	deleter := bucketDeleter{
 		targetPath:    targetPath,
 		keepFilePaths: keepFilePaths,
@@ -22,7 +22,7 @@ func NewBucketDeleter(targetPath string, keepFilePaths map[string]bool) *bucketD
 	return &deleter
 }
 
-func (deleter *bucketDeleter) Run() {
+func (deleter *bucketDeleter) run() {
 	deleter.deleteFiles()
 }
 
